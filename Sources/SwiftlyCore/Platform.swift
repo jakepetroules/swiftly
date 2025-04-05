@@ -98,7 +98,11 @@ public protocol Platform {
 
     /// Downloads the signature file associated with the archive and verifies it matches the downloaded archive.
     /// Throws an error if the signature does not match.
-    func verifySignature(httpClient: SwiftlyHTTPClient, archiveDownloadURL: URL, archive: URL, verbose: Bool) async throws
+    func verifyToolchainSignature(httpClient: SwiftlyHTTPClient, toolchainFile: ToolchainFile, archive: URL, verbose: Bool) async throws
+
+    /// Downloads the signature file associated with the archive and verifies it matches the downloaded archive.
+    /// Throws an error if the signature does not match.
+    func verifySwiftlySignature(httpClient: SwiftlyHTTPClient, archiveDownloadURL: URL, archive: URL, verbose: Bool) async throws
 
     /// Detect the platform definition for this platform.
     func detectPlatform(disableConfirmation: Bool, platform: String?) async throws -> PlatformDefinition

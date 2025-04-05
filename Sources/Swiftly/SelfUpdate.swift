@@ -75,8 +75,7 @@ struct SelfUpdate: SwiftlyCommand {
             header: "Downloading swiftly \(version)"
         )
         do {
-            try await SwiftlyCore.httpClient.downloadFile(
-                url: downloadURL,
+            try await SwiftlyCore.httpClient.getSwiftlyRelease(url: downloadURL).download(
                 to: tmpFile,
                 reportProgress: { progress in
                     let downloadedMiB = Double(progress.receivedBytes) / (1024.0 * 1024.0)
@@ -95,7 +94,7 @@ struct SelfUpdate: SwiftlyCommand {
         }
         animation.complete(success: true)
 
-        try await Swiftly.currentPlatform.verifySignature(httpClient: SwiftlyCore.httpClient, archiveDownloadURL: downloadURL, archive: tmpFile, verbose: verbose)
+        try await Swiftly.currentPlatform.verifySwiftlySignature(httpClient: SwiftlyCore.httpClient, archiveDownloadURL: downloadURL, archive: tmpFile, verbose: verbose)
         try Swiftly.currentPlatform.extractSwiftlyAndInstall(from: tmpFile)
 
         SwiftlyCore.print("Successfully updated swiftly to \(version) (was \(SwiftlyCore.version))")

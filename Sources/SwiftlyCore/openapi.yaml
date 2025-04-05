@@ -16,6 +16,144 @@ tags:
   - name: SSWG
     description: Information about the Swift Server Workgroup.
 paths:
+  /keys/all-keys.asc:
+    get:
+      operationId: swiftGpgKeys
+      summary: Download Swift GPG keys.
+      tags:
+        - Swiftly
+      responses:
+        200:
+          description: A successful response.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /swiftly/{platform}/{file}:
+    parameters:
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadSwiftlyRelease
+      summary: Download a Swiftly release.
+      tags:
+        - Swiftly
+      responses:
+        200:
+          description: A successful response.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Not found.
+  /swiftly/{platform}/{file}.sig:
+    parameters:
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getSwiftlyReleaseSignature
+      summary: Get a Swiftly release signature.
+      tags:
+        - Swiftly
+      responses:
+        200:
+          description: A successful response.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+  /{category}/{platform}/{version}/{file}:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: downloadSwiftToolchain
+      summary: Download a Swift toolchain.
+      tags:
+        - Swiftly
+      responses:
+        200:
+          description: A successful response.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        404:
+          description: Not found.
+  /{category}/{platform}/{version}/{file}.sig:
+    parameters:
+      - name: category
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: platform
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: version
+        in: path
+        required: true
+        schema:
+          type: string
+      - name: file
+        in: path
+        required: true
+        schema:
+          type: string
+    get:
+      operationId: getSwiftToolchainSignature
+      summary: Get a Swift toolchain signature.
+      tags:
+        - Swiftly
+      responses:
+        200:
+          description: A successful response.
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
   /install/releases.json:
     get:
       operationId: listReleases

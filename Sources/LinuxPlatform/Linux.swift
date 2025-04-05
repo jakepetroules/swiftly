@@ -272,11 +272,7 @@ public struct Linux: Platform {
                     try? FileManager.default.removeItem(at: tmpFile)
                 }
 
-                guard let url = URL(string: "https://www.swift.org/keys/all-keys.asc") else {
-                    throw SwiftlyError(message: "malformed URL to the swift gpg keys")
-                }
-
-                try await httpClient.downloadFile(url: url, to: tmpFile)
+                try await httpClient.getGpgKeys().download(to: tmpFile)
                 try self.runProgram("gpg", "--import", tmpFile.path, quiet: true)
 
                 swiftGPGKeysRefreshed = true
@@ -394,7 +390,7 @@ public struct Linux: Platform {
         FileManager.default.temporaryDirectory.appendingPathComponent("swiftly-\(UUID())")
     }
 
-    public func verifySignature(httpClient: SwiftlyHTTPClient, archiveDownloadURL: URL, archive: URL, verbose: Bool) async throws {
+    public func verifyToolchainSignature(httpClient: SwiftlyHTTPClient, toolchainFile: ToolchainFile, archive: URL, verbose: Bool) async throws {
         if verbose {
             SwiftlyCore.print("Downloading toolchain signature...")
         }
@@ -405,12 +401,30 @@ public struct Linux: Platform {
             try? FileManager.default.removeItem(at: sigFile)
         }
 
-        try await httpClient.downloadFile(
-            url: archiveDownloadURL.appendingPathExtension("sig"),
-            to: sigFile
-        )
+        try await httpClient.getSwiftToolchainFileSignature(toolchainFile).download(to: sigFile)
 
         SwiftlyCore.print("Verifying toolchain signature...")
+        do {
+            try self.runProgram("gpg", "--verify", sigFile.path, archive.path, quiet: !verbose)
+        } catch {
+            throw SwiftlyError(message: "Signature verification failed: \(error).")
+        }
+    }
+
+    public func verifySwiftlySignature(httpClient: SwiftlyHTTPClient, archiveDownloadURL: URL, archive: URL, verbose: Bool) async throws {
+        if verbose {
+            SwiftlyCore.print("Downloading swiftly signature...")
+        }
+
+        let sigFile = self.getTempFilePath()
+        let _ = FileManager.default.createFile(atPath: sigFile.path, contents: nil)
+        defer {
+            try? FileManager.default.removeItem(at: sigFile)
+        }
+
+        try await httpClient.getSwiftlyReleaseSignature(url: archiveDownloadURL.appendingPathExtension("sig")).download(to: sigFile)
+
+        SwiftlyCore.print("Verifying swiftly signature...")
         do {
             try self.runProgram("gpg", "--verify", sigFile.path, archive.path, quiet: !verbose)
         } catch {

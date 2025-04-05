@@ -164,8 +164,6 @@ struct Install: SwiftlyCommand {
             try? FileManager.default.removeItem(at: tmpFile)
         }
 
-        var url = "https://download.swift.org/"
-
         var platformString = config.platform.name
         var platformFullString = config.platform.nameFull
 
@@ -174,6 +172,7 @@ struct Install: SwiftlyCommand {
         platformFullString += "-aarch64"
 #endif
 
+        let category: String
         switch version {
         case let .stable(stableVersion):
             // Building URL path that looks like:
@@ -183,22 +182,14 @@ struct Install: SwiftlyCommand {
                 versionString += ".\(stableVersion.patch)"
             }
 
-            url += "swift-\(versionString)-release/"
+            category = "swift-\(versionString)-release"
         case let .snapshot(release):
             switch release.branch {
             case let .release(major, minor):
-                url += "swift-\(major).\(minor)-branch/"
+                category = "swift-\(major).\(minor)-branch"
             case .main:
-                url += "development/"
+                category = "development"
             }
-        }
-
-        url += "\(platformString)/"
-        url += "\(version.identifier)/"
-        url += "\(version.identifier)-\(platformFullString).\(Swiftly.currentPlatform.toolchainFileExtension)"
-
-        guard let url = URL(string: url) else {
-            throw SwiftlyError(message: "Invalid toolchain URL: \(url)")
         }
 
         let animation = PercentProgressAnimation(
@@ -208,9 +199,10 @@ struct Install: SwiftlyCommand {
 
         var lastUpdate = Date()
 
+        let toolchainFile = ToolchainFile(category: category, platform: platformString, version: version.identifier, file: "\(version.identifier)-\(platformFullString).\(Swiftly.currentPlatform.toolchainFileExtension)")
+
         do {
-            try await SwiftlyCore.httpClient.downloadFile(
-                url: url,
+            try await SwiftlyCore.httpClient.getSwiftToolchainFile(toolchainFile).download(
                 to: tmpFile,
                 reportProgress: { progress in
                     let now = Date()
@@ -231,7 +223,7 @@ struct Install: SwiftlyCommand {
                     )
                 }
             )
-        } catch let notFound as SwiftlyHTTPClient.DownloadNotFoundError {
+        } catch let notFound as DownloadNotFoundError {
             throw SwiftlyError(message: "\(version) does not exist at URL \(notFound.url), exiting")
         } catch {
             animation.complete(success: false)
@@ -240,9 +232,9 @@ struct Install: SwiftlyCommand {
         animation.complete(success: true)
 
         if verifySignature {
-            try await Swiftly.currentPlatform.verifySignature(
+            try await Swiftly.currentPlatform.verifyToolchainSignature(
                 httpClient: SwiftlyCore.httpClient,
-                archiveDownloadURL: url,
+                toolchainFile: toolchainFile,
                 archive: tmpFile,
                 verbose: verbose
             )

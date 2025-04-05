@@ -56,11 +56,29 @@ extension Components.Schemas.SwiftlyPlatformIdentifier {
     }
 }
 
+public struct ToolchainFile: Sendable {
+    public var category: String
+    public var platform: String
+    public var version: String
+    public var file: String
+
+    public init(category: String, platform: String, version: String, file: String) {
+        self.category = category
+        self.platform = platform
+        self.version = version
+        self.file = file
+    }
+}
+
 public protocol HTTPRequestExecutor {
-    func execute(_ request: HTTPClientRequest, timeout: TimeAmount) async throws -> HTTPClientResponse
     func getCurrentSwiftlyRelease() async throws -> Components.Schemas.SwiftlyRelease
     func getReleaseToolchains() async throws -> [Components.Schemas.Release]
     func getSnapshotToolchains(branch: Components.Schemas.SourceBranch, platform: Components.Schemas.PlatformIdentifier) async throws -> Components.Schemas.DevToolchains
+    func getGpgKeys() async throws -> OpenAPIRuntime.HTTPBody
+    func getSwiftlyRelease(url: URL) async throws -> OpenAPIRuntime.HTTPBody
+    func getSwiftlyReleaseSignature(url: URL) async throws -> OpenAPIRuntime.HTTPBody
+    func getSwiftToolchainFile(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody
+    func getSwiftToolchainFileSignature(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody
 }
 
 struct SwiftlyUserAgentMiddleware: ClientMiddleware {
@@ -119,11 +137,7 @@ class HTTPRequestExecutorImpl: HTTPRequestExecutor {
         }
     }
 
-    public func execute(_ request: HTTPClientRequest, timeout: TimeAmount) async throws -> HTTPClientResponse {
-        try await self.httpClient.execute(request, timeout: timeout)
-    }
-
-    private func client() throws -> Client {
+    private func client(baseURL: URL? = nil) throws -> Client {
         let swiftlyUserAgent = SwiftlyUserAgentMiddleware()
         let transport: ClientTransport
 
@@ -131,7 +145,7 @@ class HTTPRequestExecutorImpl: HTTPRequestExecutor {
         transport = AsyncHTTPClientTransport(configuration: config)
 
         return Client(
-            serverURL: try Servers.Server1.url(),
+            serverURL: try baseURL ?? Servers.Server1.url(),
             transport: transport,
             middlewares: [swiftlyUserAgent]
         )
@@ -153,12 +167,47 @@ class HTTPRequestExecutorImpl: HTTPRequestExecutor {
 
         return try response.ok.body.json
     }
-}
 
-private func makeRequest(url: String) -> HTTPClientRequest {
-    var request = HTTPClientRequest(url: url)
-    request.headers.add(name: "User-Agent", value: "swiftly/\(SwiftlyCore.version)")
-    return request
+    public func getGpgKeys() async throws -> OpenAPIRuntime.HTTPBody {
+        let response = try await client(baseURL: URL(string: "https://www.swift.org/")!).swiftGpgKeys(.init())
+
+        return try response.ok.body.binary
+    }
+
+    public func getSwiftlyRelease(url: URL) async throws -> OpenAPIRuntime.HTTPBody {
+        guard url.host(percentEncoded: false) == "download.swift.org", let match = try #/\/swiftly\/(?<platform>.+)\/(?<file>.+)/#.wholeMatch(in: url.path(percentEncoded: false)) else {
+            throw SwiftlyError(message: "Unexpected URL format: \(url.path(percentEncoded: false))")
+        }
+
+        let response = try await client(baseURL: URL(string: "https://download.swift.org/")!).downloadSwiftlyRelease(.init(path: .init(platform: String(match.output.platform), file: String(match.output.file))))
+
+        return try response.ok.body.binary
+    }
+
+    public func getSwiftlyReleaseSignature(url: URL) async throws -> OpenAPIRuntime.HTTPBody {
+        guard url.host(percentEncoded: false) == "download.swift.org", let match = try #/\/swiftly\/(?<platform>.+)\/(?<file>.+).sig/#.wholeMatch(in: url.path(percentEncoded: false)) else {
+            throw SwiftlyError(message: "Unexpected URL format: \(url.path(percentEncoded: false))")
+        }
+
+        let response = try await client(baseURL: URL(string: "https://download.swift.org/")!).getSwiftlyReleaseSignature(.init(path: .init(platform: String(match.output.platform), file: String(match.output.file))))
+
+        return try response.ok.body.binary
+    }
+
+    public func getSwiftToolchainFile(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody {
+        let response = try await client(baseURL: URL(string: "https://download.swift.org/")!).downloadSwiftToolchain(.init(path: .init(category: String(toolchainFile.category), platform: String(toolchainFile.platform), version: String(toolchainFile.version), file: String(toolchainFile.file))))
+        if response == .notFound {
+            throw DownloadNotFoundError(url: URL(string: "https://download.swift.org/\(toolchainFile.category)/\(toolchainFile.platform)/\(toolchainFile.version)/\(toolchainFile.file)")!)
+        }
+
+        return try response.ok.body.binary
+    }
+
+    public func getSwiftToolchainFileSignature(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody {
+        let response = try await client(baseURL: URL(string: "https://download.swift.org/")!).getSwiftToolchainSignature(.init(path: .init(category: String(toolchainFile.category), platform: String(toolchainFile.platform), version: String(toolchainFile.version), file: String(toolchainFile.file))))
+
+        return try response.ok.body.binary
+    }
 }
 
 extension Components.Schemas.Release {
@@ -277,6 +326,19 @@ extension Components.Schemas.DevToolchainForArch {
         }
 
         return ToolchainVersion.Snapshot(branch: branch, date: String(match.output.3))
+    }
+}
+
+public struct DownloadProgress {
+    public let receivedBytes: Int
+    public let totalBytes: Int?
+}
+
+public struct DownloadNotFoundError: LocalizedError {
+    public let url: URL
+
+    public init(url: URL) {
+        self.url = url
     }
 }
 
@@ -411,51 +473,53 @@ public struct SwiftlyHTTPClient {
         }
     }
 
-    public struct DownloadProgress {
-        public let receivedBytes: Int
-        public let totalBytes: Int?
+    public func getGpgKeys() async throws -> OpenAPIRuntime.HTTPBody {
+        try await SwiftlyCore.httpRequestExecutor.getGpgKeys()
     }
 
-    public struct DownloadNotFoundError: LocalizedError {
-        public let url: String
+    public func getSwiftlyRelease(url: URL) async throws -> OpenAPIRuntime.HTTPBody {
+        try await SwiftlyCore.httpRequestExecutor.getSwiftlyRelease(url: url)
     }
 
-    public func downloadFile(
-        url: URL,
-        to destination: URL,
-        reportProgress: ((DownloadProgress) -> Void)? = nil
-    ) async throws {
+    public func getSwiftlyReleaseSignature(url: URL) async throws -> OpenAPIRuntime.HTTPBody {
+        try await SwiftlyCore.httpRequestExecutor.getSwiftlyReleaseSignature(url: url)
+    }
+
+    public func getSwiftToolchainFile(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody {
+        try await SwiftlyCore.httpRequestExecutor.getSwiftToolchainFile(toolchainFile)
+    }
+
+    public func getSwiftToolchainFileSignature(_ toolchainFile: ToolchainFile) async throws -> OpenAPIRuntime.HTTPBody {
+        try await SwiftlyCore.httpRequestExecutor.getSwiftToolchainFileSignature(toolchainFile)
+    }
+}
+
+extension OpenAPIRuntime.HTTPBody {
+    public func download(to destination: URL, reportProgress: ((DownloadProgress) -> Void)? = nil) async throws {
         let fileHandle = try FileHandle(forWritingTo: destination)
         defer {
             try? fileHandle.close()
         }
 
-        let request = makeRequest(url: url.absoluteString)
-        let response = try await SwiftlyCore.httpRequestExecutor.execute(request, timeout: .seconds(30))
-
-        switch response.status {
-        case .ok:
-            break
-        case .notFound:
-            throw SwiftlyHTTPClient.DownloadNotFoundError(url: url.path)
-        default:
-            throw SwiftlyError(message: "Received \(response.status) when trying to download \(url)")
+        let expectedBytes: Int?
+        switch self.length {
+        case .unknown:
+            expectedBytes = nil
+        case let .known(count):
+            expectedBytes = Int(count)
         }
-
-        // if defined, the content-length headers announces the size of the body
-        let expectedBytes = response.headers.first(name: "content-length").flatMap(Int.init)
 
         var lastUpdate = Date()
         var receivedBytes = 0
-        for try await buffer in response.body {
-            receivedBytes += buffer.readableBytes
+        for try await buffer in self {
+            receivedBytes += buffer.count
 
-            try fileHandle.write(contentsOf: buffer.readableBytesView)
+            try fileHandle.write(contentsOf: buffer)
 
             let now = Date()
             if let reportProgress, lastUpdate.distance(to: now) > 0.25 || receivedBytes == expectedBytes {
                 lastUpdate = now
-                reportProgress(SwiftlyHTTPClient.DownloadProgress(
+                reportProgress(DownloadProgress(
                     receivedBytes: receivedBytes,
                     totalBytes: expectedBytes
                 ))

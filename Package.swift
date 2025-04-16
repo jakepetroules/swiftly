@@ -25,7 +25,8 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
         .package(url: "https://github.com/swift-server/async-http-client", from: "1.24.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.1.0"),
-        .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0"),
+        .package(url: "https://github.com/apple/swift-nio.git", branch: "main"),
+        .package(url: "https://github.com/apple/swift-nio-ssl.git", from: "2.37.1"), // transitive only; AHC should require the Windows-supporting version
         .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.7.2"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.3.0"),
         .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.7.2"),
@@ -43,6 +44,7 @@ let package = Package(
                 .target(name: "SwiftlyCore"),
                 .target(name: "LinuxPlatform", condition: .when(platforms: [.linux])),
                 .target(name: "MacOSPlatform", condition: .when(platforms: [.macOS])),
+                .target(name: "WindowsPlatform", condition: .when(platforms: [.windows])),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
@@ -55,6 +57,7 @@ let package = Package(
                 .target(name: "SwiftlyCore"),
                 .target(name: "LinuxPlatform", condition: .when(platforms: [.linux])),
                 .target(name: "MacOSPlatform", condition: .when(platforms: [.macOS])),
+                .target(name: "WindowsPlatform", condition: .when(platforms: [.windows])),
             ],
             swiftSettings: swiftSettings
         ),
@@ -138,6 +141,7 @@ let package = Package(
                 .target(name: "SwiftlyCore"),
                 .target(name: "LinuxPlatform", condition: .when(platforms: [.linux])),
                 .target(name: "MacOSPlatform", condition: .when(platforms: [.macOS])),
+                .target(name: "WindowsPlatform", condition: .when(platforms: [.windows])),
                 .product(name: "ArgumentParser", package: "swift-argument-parser"),
                 .product(name: "_NIOFileSystem", package: "swift-nio"),
             ],
@@ -163,6 +167,12 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "WindowsPlatform",
+            dependencies: [
+                "SwiftlyCore",
+            ]
         ),
         .systemLibrary(
             name: "CLibArchive",

@@ -1,14 +1,14 @@
 import _StringProcessing
-import AsyncHTTPClient
 import Foundation
 import HTTPTypes
+import OpenAPIRuntime
+import SwiftlyDownloadAPI
+import SwiftlyWebsiteAPI
+import AsyncHTTPClient
 import NIO
 import NIOFoundationCompat
 import NIOHTTP1
 import OpenAPIAsyncHTTPClient
-import OpenAPIRuntime
-import SwiftlyDownloadAPI
-import SwiftlyWebsiteAPI
 import SystemPackage
 
 extension SwiftlyWebsiteAPI.Components.Schemas.SwiftlyRelease {
@@ -152,34 +152,29 @@ public final class HTTPRequestExecutorImpl: HTTPRequestExecutor {
         }
     }
 
-    private func websiteClient() throws -> SwiftlyWebsiteAPI.Client {
-        let swiftlyUserAgent = SwiftlyUserAgentMiddleware()
+    private func transport() -> ClientTransport {
         let transport: ClientTransport
-
         let config = AsyncHTTPClientTransport.Configuration(
             client: self.httpClient, timeout: .seconds(30)
         )
         transport = AsyncHTTPClientTransport(configuration: config)
+        return transport
+    }
 
+    private func websiteClient() throws -> SwiftlyWebsiteAPI.Client {
+        let swiftlyUserAgent = SwiftlyUserAgentMiddleware()
         return Client(
             serverURL: try SwiftlyWebsiteAPI.Servers.productionURL(),
-            transport: transport,
+            transport: transport(),
             middlewares: [swiftlyUserAgent]
         )
     }
 
     private func downloadClient(baseURL: URL) throws -> SwiftlyDownloadAPI.Client {
         let swiftlyUserAgent = SwiftlyUserAgentMiddleware()
-        let transport: ClientTransport
-
-        let config = AsyncHTTPClientTransport.Configuration(
-            client: self.httpClient, timeout: .seconds(30)
-        )
-        transport = AsyncHTTPClientTransport(configuration: config)
-
-        return SwiftlyDownloadAPI.Client(
+        return Client(
             serverURL: baseURL,
-            transport: transport,
+            transport: transport(),
             middlewares: [swiftlyUserAgent]
         )
     }

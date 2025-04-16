@@ -10,12 +10,16 @@ import SystemPackage
 import MacOSPlatform
 #elseif os(Linux)
 import LinuxPlatform
+#elseif os(Windows)
+import WindowsPlatform
 #endif
 
 #if os(macOS)
 let currentPlatform = MacOS()
 #elseif os(Linux)
 let currentPlatform = Linux()
+#elseif os(Windows)
+let currentPlatform = Windows()
 #endif
 
 typealias fs = SwiftlyCore.FileSystem
@@ -77,7 +81,7 @@ struct BuildSwiftlyRelease: AsyncParsableCommand {
 #elseif os(macOS)
         try await self.buildMacOSRelease(cert: self.cert, identifier: self.identifier)
 #else
-        #error("Unsupported OS")
+        fatalError("Unsupported OS")
 #endif
     }
 

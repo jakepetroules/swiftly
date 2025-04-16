@@ -1,4 +1,3 @@
-import AsyncHTTPClient
 import Foundation
 import Subprocess
 @testable import Swiftly

@@ -23,6 +23,8 @@ public struct PlatformDefinition: Codable, Equatable, Sendable {
         self.namePretty = namePretty
     }
 
+    public static let windows = PlatformDefinition(name: "windows10", nameFull: "windows10", namePretty: "Windows")
+
     public static let macOS = PlatformDefinition(name: "xcode", nameFull: "osx", namePretty: "macOS")
 
     public static let ubuntu2404 = PlatformDefinition(

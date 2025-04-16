@@ -11,8 +11,10 @@ import Testing
 import MacOSPlatform
 #endif
 
+#if !os(Windows)  // until Windows gets NIO support
 import AsyncHTTPClient
 import NIO
+#endif
 
 struct SwiftlyTestError: LocalizedError {
     let message: String
@@ -705,7 +707,15 @@ public final actor MockToolchainDownloader: HTTPRequestExecutor {
         HTTPBody(Array(Data(PackageResources.mock_signing_key_private_pgp)))
     }
 
-#if os(Linux)
+#if os(Windows)
+    public func makeMockedSwiftly(from url: URL) throws -> Data {
+        fatalError("Not yet implemented")
+    }
+
+    public func makeMockedToolchain(toolchain: ToolchainVersion, name: String) throws -> Data {
+        fatalError("Not yet implemented")
+    }
+#elseif os(Linux)
     public func makeMockedSwiftly(from url: URL) throws -> Data {
         // Check our cache if this is a signature request
         if url.path.hasSuffix(".sig") {

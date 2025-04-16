@@ -1,4 +1,3 @@
-import AsyncHTTPClient
 import Foundation
 @testable import Swiftly
 @testable import SwiftlyCore

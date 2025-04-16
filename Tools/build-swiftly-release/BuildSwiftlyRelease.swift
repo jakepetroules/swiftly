@@ -40,11 +40,13 @@ public func runProgramEnv(_ args: String..., quiet: Bool = false, env: [String: 
     }
 
     try process.run()
+    #if !os(Windows) // until Windows gets NIO support
     // Attach this process to our process group so that Ctrl-C and other signals work
     let pgid = tcgetpgrp(STDOUT_FILENO)
     if pgid != -1 {
         tcsetpgrp(STDOUT_FILENO, process.processIdentifier)
     }
+    #endif
     process.waitUntilExit()
 
     guard process.terminationStatus == 0 else {
@@ -65,11 +67,13 @@ public func runProgram(_ args: String..., quiet: Bool = false) throws {
     }
 
     try process.run()
+    #if !os(Windows) // until Windows gets NIO support
     // Attach this process to our process group so that Ctrl-C and other signals work
     let pgid = tcgetpgrp(STDOUT_FILENO)
     if pgid != -1 {
         tcsetpgrp(STDOUT_FILENO, process.processIdentifier)
     }
+    #endif
     process.waitUntilExit()
 
     guard process.terminationStatus == 0 else {
@@ -89,11 +93,13 @@ public func runProgramOutput(_ program: String, _ args: String...) async throws 
     process.standardOutput = outPipe
 
     try process.run()
+    #if !os(Windows) // until Windows gets NIO support
     // Attach this process to our process group so that Ctrl-C and other signals work
     let pgid = tcgetpgrp(STDOUT_FILENO)
     if pgid != -1 {
         tcsetpgrp(STDOUT_FILENO, process.processIdentifier)
     }
+    #endif
     let outData = try outPipe.fileHandleForReading.readToEnd()
 
     process.waitUntilExit()
@@ -110,8 +116,10 @@ public func runProgramOutput(_ program: String, _ args: String...) async throws 
     }
 }
 
-#if os(macOS)
 public func getShell() async throws -> String {
+#if os(Windows)
+    return ProcessInfo.processInfo.environment["ComSpec"] ?? "C:/Windows/System32/cmd.exe"
+#elseif os(macOS)
     if let directoryInfo = try await runProgramOutput("dscl", ".", "-read", FileManager.default.homeDirectoryForCurrentUser.path) {
         for line in directoryInfo.components(separatedBy: "\n") {
             if line.hasPrefix("UserShell: ") {
@@ -124,10 +132,7 @@ public func getShell() async throws -> String {
 
     // Fall back to zsh on macOS
     return "/bin/zsh"
-}
-
 #elseif os(Linux)
-public func getShell() async throws -> String {
     if let passwds = try await runProgramOutput("getent", "passwd") {
         for line in passwds.components(separatedBy: "\n") {
             if line.hasPrefix("root:") {
@@ -140,8 +145,8 @@ public func getShell() async throws -> String {
 
     // Fall back on bash on Linux and other Unixes
     return "/bin/bash"
-}
 #endif
+}
 
 @main
 struct BuildSwiftlyRelease: AsyncParsableCommand {
@@ -178,11 +183,16 @@ struct BuildSwiftlyRelease: AsyncParsableCommand {
 #elseif os(macOS)
         try await self.buildMacOSRelease(cert: self.cert, identifier: self.identifier)
 #else
-        #error("Unsupported OS")
+        fatalError("Unsupported OS")
 #endif
     }
 
     func assertTool(_ name: String, message: String) async throws -> String {
+        #if os(Windows)
+        guard let location = try? await runProgramOutput(getShell(), "/c", "where \(name)") else {
+            throw Error(message: message)
+        }
+        #else
         guard let _ = try? await runProgramOutput(getShell(), "-c", "which which") else {
             throw Error(message: "The which command could not be found. Please install it with your package manager.")
         }
@@ -190,6 +200,7 @@ struct BuildSwiftlyRelease: AsyncParsableCommand {
         guard let location = try? await runProgramOutput(getShell(), "-c", "which \(name)") else {
             throw Error(message: message)
         }
+        #endif
 
         return location.replacingOccurrences(of: "\n", with: "")
     }

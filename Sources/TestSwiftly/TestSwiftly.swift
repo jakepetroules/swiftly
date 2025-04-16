@@ -7,12 +7,16 @@ import SystemPackage
 import LinuxPlatform
 #elseif os(macOS)
 import MacOSPlatform
+#elseif os(Windows)
+import WindowsPlatform
 #endif
 
 #if os(Linux)
 let currentPlatform: Platform = Linux.currentPlatform
 #elseif os(macOS)
 let currentPlatform: Platform = MacOS.currentPlatform
+#elseif os(Windows)
+let currentPlatform: Platform = Windows.currentPlatform
 #else
 #error("Unsupported platform")
 #endif
@@ -45,12 +49,17 @@ struct TestSwiftly: AsyncParsableCommand {
         try currentPlatform.runProgram("tar", "-zxvf", swiftlyArchive, quiet: false)
 #elseif os(macOS)
         try currentPlatform.runProgram("installer", "-pkg", swiftlyArchive, "-target", "CurrentUserHomeDirectory", quiet: false)
+#elseif os(Windows)
+        fatalError("not yet implemented")
 #endif
 
 #if os(Linux)
         let extractedSwiftly = FilePath("./swiftly")
 #elseif os(macOS)
         let extractedSwiftly = fs.home / ".swiftly/bin/swiftly"
+#elseif os(Windows)
+        let extractedSwiftly: String!
+        fatalError("not yet implemented")
 #endif
 
         var env = ProcessInfo.processInfo.environment

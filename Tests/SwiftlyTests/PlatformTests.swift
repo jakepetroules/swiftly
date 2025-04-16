@@ -5,6 +5,7 @@ import SystemPackage
 import Testing
 
 @Suite struct PlatformTests {
+#if os(macOS) || os(Linux)
     func mockToolchainDownload(version: String) async throws -> (FilePath, ToolchainVersion, FilePath) {
         let mockDownloader = MockToolchainDownloader(executables: ["swift"])
         let version = try! ToolchainVersion(parsing: version)
@@ -87,7 +88,6 @@ import Testing
         #expect(0 == toolchains.count)
     }
 
-#if os(macOS) || os(Linux)
     @Test(
         .mockedSwiftlyVersion(),
         .mockHomeToolchains(),

@@ -1,6 +1,4 @@
-import AsyncHTTPClient
 import Foundation
-import NIO
 @testable import Swiftly
 @testable import SwiftlyCore
 import Testing

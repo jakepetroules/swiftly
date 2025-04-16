@@ -4,6 +4,8 @@ import Foundation
 import LinuxPlatform
 #elseif os(macOS)
 import MacOSPlatform
+#elseif os(Windows)
+import WindowsPlatform
 #endif
 import SwiftlyCore
 import SystemPackage
@@ -69,11 +71,17 @@ public struct Swiftly: SwiftlyCommand {
 
     public mutating func run(_: SwiftlyCoreContext) async throws {}
 
-#if os(Linux)
-    static let currentPlatform = Linux.currentPlatform
-#elseif os(macOS)
-    static let currentPlatform = MacOS.currentPlatform
-#endif
+    static var currentPlatform: Platform {
+        #if os(Linux)
+        return Linux.currentPlatform
+        #elseif os(macOS)
+        return MacOS.currentPlatform
+        #elseif os(Windows)
+        return Windows.currentPlatform
+        #else
+        #error("Implement support for current platform")
+        #endif
+    }
 }
 
 public protocol SwiftlyCommand: AsyncParsableCommand {

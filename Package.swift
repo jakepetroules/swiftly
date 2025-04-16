@@ -25,11 +25,12 @@ let package = Package(
         .package(url: "https://github.com/apple/swift-argument-parser", from: "1.3.0"),
         .package(url: "https://github.com/swift-server/async-http-client", from: "1.24.0"),
         .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.1.0"),
+        .package(url: "https://github.com/apple/swift-openapi-urlsession", from: "1.1.0"),
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.80.0"),
         .package(url: "https://github.com/apple/swift-tools-support-core.git", from: "0.7.2"),
         .package(url: "https://github.com/apple/swift-docc-plugin", from: "1.3.0"),
-        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.6.0"),
-        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.7.0"),
+        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.7.2"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.8.2"),
         .package(url: "https://github.com/apple/swift-system", from: "1.4.2"),
         // This dependency provides the correct version of the formatter so that you can run `swift run swiftformat Package.swift Plugins/ Sources/ Tests/`
         .package(url: "https://github.com/nicklockwood/SwiftFormat", exact: "0.49.18"),
@@ -42,6 +43,7 @@ let package = Package(
                 .target(name: "SwiftlyCore"),
                 .target(name: "LinuxPlatform", condition: .when(platforms: [.linux])),
                 .target(name: "MacOSPlatform", condition: .when(platforms: [.macOS])),
+                .target(name: "WindowsPlatform", condition: .when(platforms: [.windows])),
                 .product(name: "SwiftToolsSupport-auto", package: "swift-tools-support-core"),
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
@@ -54,6 +56,7 @@ let package = Package(
                 .target(name: "SwiftlyCore"),
                 .target(name: "LinuxPlatform", condition: .when(platforms: [.linux])),
                 .target(name: "MacOSPlatform", condition: .when(platforms: [.macOS])),
+                .target(name: "WindowsPlatform", condition: .when(platforms: [.windows])),
             ],
             swiftSettings: swiftSettings
         ),
@@ -62,10 +65,11 @@ let package = Package(
             dependencies: [
                 "SwiftlyDownloadAPI",
                 "SwiftlyWebsiteAPI",
-                .product(name: "AsyncHTTPClient", package: "async-http-client"),
+                .product(name: "AsyncHTTPClient", package: "async-http-client", condition: .when(platforms: [.android, .linux, .macOS, .openbsd, .wasi, .custom("freebsd")])),
                 .product(name: "NIOFoundationCompat", package: "swift-nio"),
                 .product(name: "OpenAPIRuntime", package: "swift-openapi-runtime"),
-                .product(name: "OpenAPIAsyncHTTPClient", package: "swift-openapi-async-http-client"),
+                .product(name: "OpenAPIAsyncHTTPClient", package: "swift-openapi-async-http-client", condition: .when(platforms: [.android, .linux, .macOS, .openbsd, .wasi, .custom("freebsd")])),
+                .product(name: "OpenAPIURLSession", package: "swift-openapi-urlsession", condition: .when(platforms: [.windows])), // until NIO gets Windows support
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             swiftSettings: swiftSettings
@@ -143,6 +147,12 @@ let package = Package(
                 .product(name: "SystemPackage", package: "swift-system"),
             ],
             swiftSettings: swiftSettings
+        ),
+        .target(
+            name: "WindowsPlatform",
+            dependencies: [
+                "SwiftlyCore",
+            ]
         ),
         .systemLibrary(
             name: "CLibArchive",

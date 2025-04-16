@@ -22,6 +22,8 @@ public struct PlatformDefinition: Codable, Equatable, Sendable {
         self.namePretty = namePretty
     }
 
+    public static let windows = PlatformDefinition(name: "windows10", nameFull: "windows10", namePretty: "Windows")
+
     public static let macOS = PlatformDefinition(name: "xcode", nameFull: "osx", namePretty: "macOS")
 
     public static let ubuntu2404 = PlatformDefinition(
@@ -160,7 +162,6 @@ extension Platform {
         self.swiftlyHomeDir(ctx) / "config.json"
     }
 
-#if os(macOS) || os(Linux)
     func proxyEnv(_ ctx: SwiftlyCoreContext, env: [String: String], toolchain: ToolchainVersion) async throws -> [String: String] {
         var newEnv = env
 
@@ -270,6 +271,7 @@ extension Platform {
         }
 
         try process.run()
+        #if !os(Windows)
         // Attach this process to our process group so that Ctrl-C and other signals work
         let pgid = tcgetpgrp(STDOUT_FILENO)
         if pgid != -1 {
@@ -281,6 +283,7 @@ extension Platform {
                 tcsetpgrp(STDOUT_FILENO, pgid)
             }
         }
+        #endif
 
         process.waitUntilExit()
 
@@ -322,6 +325,7 @@ extension Platform {
         process.standardOutput = outPipe
 
         try process.run()
+        #if !os(Windows)
         // Attach this process to our process group so that Ctrl-C and other signals work
         let pgid = tcgetpgrp(STDOUT_FILENO)
         if pgid != -1 {
@@ -332,6 +336,7 @@ extension Platform {
                 tcsetpgrp(STDOUT_FILENO, pgid)
             }
         }
+        #endif
 
         let outData = try outPipe.fileHandleForReading.readToEnd()
 
@@ -466,11 +471,4 @@ extension Platform {
 
         return try await fs.exists(atPath: swiftlyHomeBin) ? swiftlyHomeBin : nil
     }
-
-    public func findToolchainBinDir(_ ctx: SwiftlyCoreContext, _ toolchain: ToolchainVersion) -> FilePath
-    {
-        self.findToolchainLocation(ctx, toolchain) / "usr/bin"
-    }
-
-#endif
 }
